@@ -1,0 +1,62 @@
+import pandas as pd
+import pywhatkit as kit
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+# Caminho do arquivo da planilha
+file_path = r"C:\Users\Beep Saude.BEEP1441\OneDrive\Documentos\Sales\RPA\Campanhas.xlsx"
+sheet_name = 'Campanhas'  # Nome da aba da planilha correta
+
+# Caminho da imagem da campanha
+image_path = r"C:\Users\Beep Saude.BEEP1441\OneDrive\Documentos\Sales\RPA\MENINGO70 - DF e CMP.png"
+
+# Código do país
+codigo_pais = '+55'  # Altere conforme o código do país necessário
+
+# Verificar se a planilha existe no arquivo
+xls = pd.ExcelFile(file_path)
+if sheet_name in xls.sheet_names:
+    df = pd.read_excel(file_path, sheet_name=sheet_name)
+else:
+    raise ValueError(f"A planilha '{sheet_name}' não foi encontrada no arquivo.")
+
+# Criar um bloqueio para sincronizar o acesso à área de transferência
+clipboard_lock = threading.Lock()
+
+def send_message(row):
+    nome = row['Nome']  # Ajustar o nome da coluna conforme necessário
+    cupom = row['código original']  # Ajustar o nome da coluna conforme necessário
+    telefone = str(row['Fone 1'])  # Ajustar o nome da coluna conforme necessário
+
+    if not telefone.startswith('+'):
+        telefone = codigo_pais + telefone
+
+    # Construir a mensagem personalizada com o novo texto
+    mensagem = (f"Olá, Dr(a). *{nome}*!\n\n"
+                "Estendemos a duração do desconto no *Pacote Meningites* em Brasília e Campinas.\n\n"
+                "Basta usar o código *MENINGO70* e garantir a condição especial! 😉\n\n"
+                "📊 A meningite bacteriana é fatal em 10% dos casos no Brasil e pode ser prevenida com as vacinas meningocócicas ACWY e B, "
+                "que fazem parte do Pacote Meningites.\n\n"
+                "Compartilhe com os seus pacientes e espalhe saúde!\n\n"
+                "*Válido para Brasília e Campinas. Valor promocional referente a uma dose de cada vacina Pfizer. "
+                "Os preços podem variar conforme a região. Veja condições no site.*")
+
+    try:
+        with clipboard_lock:
+            print(f"Enviando mensagem para {nome} no número {telefone}")
+            kit.sendwhats_image(receiver=telefone, img_path=image_path, caption=mensagem, wait_time=20, tab_close=True)
+            print(f"Mensagem enviada para {nome} com sucesso!")
+    except Exception as e:
+        print(f"Erro ao enviar mensagem para {nome}: {e}")
+
+try:
+    # Número de threads
+    num_threads = 5  # Ajuste o número de threads conforme necessário
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        executor.map(send_message, [row for index, row in df.iterrows()])
+
+    print("Envio de mensagens concluído!")
+
+except KeyboardInterrupt:
+    print("Envio de mensagens interrompido pelo usuário.")
+    
